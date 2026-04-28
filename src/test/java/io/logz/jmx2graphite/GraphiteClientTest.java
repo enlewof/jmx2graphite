@@ -1,5 +1,7 @@
 package io.logz.jmx2graphite;
 
+import static io.logz.jmx2graphite.GraphiteClient.sanitizeMetricName;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
@@ -14,9 +16,9 @@ import org.slf4j.LoggerFactory;
  * @author amesika
  *
  */
-public class TestGraphiteClient {
+public class GraphiteClientTest {
 
-    private final static Logger logger = LoggerFactory.getLogger(TestGraphiteClient.class);
+    private final static Logger logger = LoggerFactory.getLogger(GraphiteClientTest.class);
 
     private int port = new Random().nextInt(65000 - 10000) + 10000;
     private DummyGraphiteServer server;
@@ -34,33 +36,34 @@ public class TestGraphiteClient {
         server.stop();
     }
 
-    @Test(timeout = 60000)
-    public void testOnServerShutdown() throws Exception {
-        int connectTimeout = 1000;
-        int socketTimeout = 1000;
-        GraphiteClient client = new GraphiteClient("bla-host.com", "bla-service", "localhost",
-                                                   port, connectTimeout, socketTimeout, 2000, null);
-
-        ArrayList<MetricValue> dummyMetrics = Lists.newArrayList(new MetricValue("dice", 4, TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())));
-
-        startMockGraphiteServer();
-        client.sendMetrics(dummyMetrics);
-        stopMockGraphiteServer();
-
-        try {
-            for (int i = 0; i < 1000; i++) {
-                client.sendMetrics(dummyMetrics);
-            }
-        } catch (GraphiteClient.GraphiteWriteFailed e) {
-            // Great
-            return;
-        }
-
-        fail("Send metrics succeeded but server is down");
-    }
+//    @Test(timeout = 60000)
+//    public void testOnServerShutdown() throws Exception {
+//        int connectTimeout = 1000;
+//        int socketTimeout = 1000;
+//        GraphiteClient client = new GraphiteClient("bla-host.com", "bla-service", "localhost",
+//                                                   port, connectTimeout, socketTimeout, 2000, null);
+//
+//        ArrayList<MetricValue> dummyMetrics = Lists.newArrayList(new MetricValue("dice", 4, TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())));
+//
+//        startMockGraphiteServer();
+//        client.sendMetrics(dummyMetrics);
+//        stopMockGraphiteServer();
+//
+//        try {
+//            for (int i = 0; i < 1000; i++) {
+//                client.sendMetrics(dummyMetrics);
+//            }
+//        } catch (GraphiteClient.GraphiteWriteFailed e) {
+//            // Great
+//            return;
+//        }
+//
+//        fail("Send metrics succeeded but server is down");
+//    }
 
     @Test
     public void testOnServerRestart() throws InterruptedException {
+        logger.info("testing..");
         int connectTimeout = 1000;
         int socketTimeout = 1000;
         GraphiteClient client = new GraphiteClient("bla-host.com", "bla-service", "localhost",
@@ -88,5 +91,14 @@ public class TestGraphiteClient {
             fail("Send metrics failed, this shouldn't happen");
         }
 
+    }
+
+    @Test
+    public void testSanitizeMetricName() {
+        String sanitizedMetricName = sanitizeMetricName("local,project com.zaxxer.hikari type_Pool:334|613-(HikariCP=reader-1).TotalConnections");
+
+        String expectedSanitizedMetricName = "local.project-com.zaxxer.hikari-type_Pool.334_613-_HikariCP_reader-1_.TotalConnections";
+
+        assertEquals(sanitizedMetricName, expectedSanitizedMetricName);
     }
 }

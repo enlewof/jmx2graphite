@@ -1,22 +1,27 @@
 package io.logz.jmx2graphite;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigException;
 
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 /**
  * @author amesika
  */
 public class Jmx2GraphiteConfiguration {
-    
     private String jolokiaFullUrl;
 
     private Graphite graphite;
-
+    private Optional<Pattern> whiteListPattern;
+    private Optional<Pattern> blackListPattern;
     /* Short name of the sampled service, required = false */
     private String serviceName = null;
 
@@ -33,8 +38,18 @@ public class Jmx2GraphiteConfiguration {
     private MetricClientType metricClientType;
     private GraphiteProtocol graphiteProtocol;
 
+    private String logLevel;
+
     public GraphiteProtocol getGraphiteProtocol() {
         return graphiteProtocol;
+    }
+
+    public Optional<Pattern> getWhiteListPattern() {
+        return whiteListPattern;
+    }
+
+    public Optional<Pattern> getBlackListPattern() {
+        return blackListPattern;
     }
 
     public enum MetricClientType {
@@ -101,14 +116,40 @@ public class Jmx2GraphiteConfiguration {
         } else {
             graphiteWriteTimeoutMs = Math.round(0.7f * TimeUnit.SECONDS.toMillis(metricsPollingIntervalInSeconds));
         }
+        parseFilterPatterns(config);
+
+        if(config.hasPath("log.level")) {
+            logLevel = config.getString("log.level");
+        } else {
+            logLevel = Level.INFO.getName();
+        }
     }
 
     private GraphiteProtocol getGraphiteProtocol(Config config) {
-        String protocol = config.getString("graphite.protocol");
+        String GRAPHITE_PROTOCOL = "graphite.protocol";
+        String protocol = config.hasPath(GRAPHITE_PROTOCOL) ? config.getString(GRAPHITE_PROTOCOL) : null;
         if (protocol != null) {
             return GraphiteProtocol.valueOf(protocol.toUpperCase());
         }
         return null;
+    }
+
+    private void parseFilterPatterns(Config config) {
+        try {
+            whiteListPattern = Optional.of(Pattern.compile(config.getString("filter.whitelistRegEx")));
+        } catch (PatternSyntaxException | ConfigException.WrongType e) {
+           throw new IllegalArgumentException("can't parse whitelist regex:" + e.getMessage(), e);
+        } catch (ConfigException.Missing e) {
+            whiteListPattern = Optional.empty();
+        }
+
+        try {
+            blackListPattern = Optional.of(Pattern.compile(config.getString("filter.blacklistRegEx")));
+        } catch (PatternSyntaxException | ConfigException.WrongType e) {
+            throw new IllegalArgumentException("can't parse blacklist regex:" + e.getMessage(), e);
+        } catch (ConfigException.Missing e) {
+            blackListPattern = Optional.empty();
+        }
     }
 
     public String getJolokiaFullUrl() {
@@ -189,5 +230,13 @@ public class Jmx2GraphiteConfiguration {
 
     public int getGraphiteWriteTimeoutMs() {
         return graphiteWriteTimeoutMs;
+    }
+
+    public String getLogLevel() {
+        return logLevel;
+    }
+
+    public void setLogLevel(String logLevel) {
+        this.logLevel = logLevel;
     }
 }

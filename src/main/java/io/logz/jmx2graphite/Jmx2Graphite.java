@@ -1,9 +1,16 @@
 package io.logz.jmx2graphite;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.Configuration;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import static io.logz.jmx2graphite.Jmx2GraphiteConfiguration.MetricClientType.JOLOKIA;
@@ -23,7 +30,10 @@ public class Jmx2Graphite {
     public Jmx2Graphite(Jmx2GraphiteConfiguration conf) {
         this.conf = conf;
 
-        this.taskScheduler = new ScheduledThreadPoolExecutor(1);
+        ThreadFactory threadFactory = new ThreadFactoryBuilder()
+                .setNameFormat("Jmx2GraphiteSender-%d")
+                .build();
+        this.taskScheduler = new ScheduledThreadPoolExecutor(1, threadFactory);
 
         if (conf.getMetricClientType() == JOLOKIA) {
             this.client = new JolokiaClient(conf.getJolokiaFullUrl());
@@ -36,6 +46,8 @@ public class Jmx2Graphite {
         else {
             throw new IllegalConfiguration("Unsupported client type: " + conf.getMetricClientType());
         }
+
+        configureLogLevel(conf.getLogLevel());
     }
 
     public void run() {
@@ -87,5 +99,13 @@ public class Jmx2Graphite {
                 logger.warn("Error during stopping main", ex);
             }
         }
+    }
+
+    private void configureLogLevel (String level) {
+        LoggerContext ctx = (LoggerContext) LogManager.getContext(false);
+        Configuration config = ctx.getConfiguration();
+        LoggerConfig loggerConfig = config.getLoggerConfig(LogManager.ROOT_LOGGER_NAME);
+        loggerConfig.setLevel(Level.valueOf(level));
+        ctx.updateLoggers();
     }
 }

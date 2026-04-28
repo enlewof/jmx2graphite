@@ -1,4 +1,3 @@
-build/
 jmx2graphite.iml
 .idea/
-.gradle/
+/target/

@@ -53,7 +53,11 @@ public class Jmx2GraphiteJavaAgent {
     private static Map<String, String> parseArgumentsString(String arguments) throws IllegalConfiguration {
         try {
             Map<String, String> argumentsMap = new HashMap<>();
-            Map<String, String> keyValues = Splitter.on(';').omitEmptyStrings().withKeyValueSeparator('=').split(arguments);
+            char delimiter = ';';
+            if (arguments.contains(",")) {
+                delimiter = ',';
+            }
+            Map<String, String> keyValues = Splitter.on(delimiter).omitEmptyStrings().withKeyValueSeparator('=').split(arguments);
 
             keyValues.forEach((k,v) -> argumentsMap.put(getArgumentConfigurationRepresentation(k),v));
 
@@ -85,6 +89,12 @@ public class Jmx2GraphiteJavaAgent {
                 return "graphite.writeTimeout";
             case "GRAPHITE_PROTOCOL":
                 return "graphite.protocol";
+            case "LOG_LEVEL":
+                return "log.level";
+            case "WHITE_LIST_REGEX":
+                return "filter.whitelistRegEx";
+            case "BLACK_LIST_REGEX":
+                return "filter.blacklistRegEx";
             default:
                 throw new IllegalConfiguration("Unknown configuration option: " + key);
         }
